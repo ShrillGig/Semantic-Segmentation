@@ -9,14 +9,14 @@ Don't forget to check the names of your neural networks in the separate file and
 
 
 #Make sure to import the correct neural network: from "neural_networks_file_name" import "neural_network_name_in_the_file"
-from linknet_file import linknet_model #Importing a neural network from another file
+from u_net_model import linknet_model #Importing a neural network from another file
 
 from pathlib import Path
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 import time 
-from tensorflow.keras import metrics, losses #Imported loss function and metric from Tensorflow
+from tensorflow.keras import metrics #Imported metrics from Tensorflow
 
 
 #The image size you want to change to (if necessary)
@@ -39,7 +39,7 @@ MASK_DIR = BASE_PATH / "indexed_mask"  #Masks folder
 train_images = []
 
 for img_path in IMAGE_DIR.glob("*.jpg"): #Check your images format
-    img = cv2.imread(img_path, 0) #Colored images will be read as grayscale
+    img = cv2.imread(str(img_path), 0) #Colored images will be read as grayscale
     img = cv2.resize(img, (SIZE_Y, SIZE_X))
     train_images.append(img) #Add image to the list
     
@@ -49,8 +49,8 @@ train_images = np.array(train_images)
 #Capture mask/label info as a list  
 train_masks = []  
 
-for img_path in MASK_DIR.glob("*.png"): #Check your masks format
-    mask = cv2.imread(img_path, 0) #Colored masks will be read as grayscale
+for mask_path in MASK_DIR.glob("*.png"): #Check your masks format
+    mask = cv2.imread(str(mask_path), 0) #Colored masks will be read as grayscale
     mask = cv2.resize(mask, (SIZE_Y, SIZE_X), interpolation = cv2.INTER_NEAREST) #Otherwise ground truth changes due to interpolation
     train_masks.append(mask) #Add mask to the list
 
@@ -65,7 +65,7 @@ from sklearn.preprocessing import LabelEncoder
 labelencoder = LabelEncoder() #Initialization
 n, h, w = train_masks.shape #Get the shapes of masks (n-number of masks, h-height, w-width)
 train_masks_reshaped = train_masks.reshape(-1,1) #Transform masks of size (n, h, w) into a two-dimensional array (n*h*w, 1)
-train_masks_reshaped_encoded = labelencoder.fit_transform(train_masks_reshaped) #Find all unique classes and sort them in ascending order from 0
+train_masks_reshaped_encoded = labelencoder.fit_transform(train_masks_reshaped.ravel()) #Find all unique classes and sort them in ascending order from 0
 train_masks_encoded_original_shape = train_masks_reshaped_encoded.reshape(n, h, w) #Return masks to original shape (n, h, w)
 
 np.unique(train_masks_encoded_original_shape) #Output all extracted classes to the console for verification
@@ -109,7 +109,7 @@ def get_model():
     return linknet_model(n_classes=n_classes, IMG_HEIGHT=IMG_HEIGHT, IMG_WIDTH=IMG_WIDTH, IMG_CHANNELS=IMG_CHANNELS)
 
 model = get_model()
-model.compile(optimizer='adam', loss=losses.CategoricalFocalCrossentropy(), metrics=[metrics.OneHotMeanIoU(n_classes)])
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=[metrics.OneHotMeanIoU(n_classes)])
 model.summary()
 
 
@@ -218,4 +218,3 @@ plt.show()
 
 #############################################################################################################################################
 #############################################################################################################################################
-
