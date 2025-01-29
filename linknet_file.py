@@ -11,7 +11,11 @@ def encoder_block(x, input_filters: int):
      :input_filters: Number of filters in Conv2D.
      :return: Processed tensor and skip connection for add() in the decoder.
      """
-   
+  
+     #First skip connection
+     shortcut_1 = Conv2D(input_filters, (1, 1), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
+     shortcut_1 = BatchNormalization()(shortcut_1)
+    
      # First convolution layer with dimensionality reduction (strides=2)
      x = Conv2D(input_filters, (3, 3), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
@@ -22,7 +26,11 @@ def encoder_block(x, input_filters: int):
      x = BatchNormalization()(x)
      x = ReLU()(x)
 
-     sc = x # First skip connection
+     #Add function x and shortcut_1
+     x = add([x, shortcut_1]) 
+     #Second skip connection
+     shortcut_2 = x
+
 
      # Third convolution layer
      x = Conv2D(input_filters, (3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
@@ -34,9 +42,9 @@ def encoder_block(x, input_filters: int):
      x = BatchNormalization()(x)
      x = ReLU()(x)
 
-     # Second skip connection
-     x = add([x, sc])
-     skip_connection = x
+     #Add function x and shortcut_1
+     x = add([x, shortcut_2])
+     skip_connection = x #For the decoder
 
      return x, skip_connection
  
@@ -71,6 +79,9 @@ def decoder_block(x, skip_connection, input_filters, output_filters: int):
      
      # Add skip connection
      x = add([x, skip_connection])
+
+     #Save for the decoder
+     skip_connection = x 
      
      return x
  
@@ -123,4 +134,3 @@ def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #
     model = Model(inputs=[inputs], outputs=[outputs])
     
     return model
-
