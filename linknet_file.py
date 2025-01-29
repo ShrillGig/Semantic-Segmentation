@@ -74,7 +74,7 @@ def decoder_block(x, skip_connection, input_filters, output_filters: int):
      
      return x
  
-def linknet_model(n_classes=44, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1):
+def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1):
     
     """
     LinkNet: Semantic Segmentation 
@@ -116,7 +116,7 @@ def linknet_model(n_classes=44, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1):
     out = BatchNormalization()(out)
     out = ReLU()(out)
     
-    out = Conv2DTranspose(44, (2,2), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(out)
+    out = Conv2DTranspose(n_classes, (2,2), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(out)
     out = BatchNormalization()(out)
     outputs = Softmax()(out)
     
