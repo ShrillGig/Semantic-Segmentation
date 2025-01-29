@@ -74,7 +74,7 @@ def decoder_block(x, skip_connection, input_filters, output_filters: int):
      
      return x
  
-def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1):
+def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #Don't forget to change n_classe if necessary
     
     """
     LinkNet: Semantic Segmentation 
