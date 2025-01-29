@@ -1,11 +1,11 @@
 
-
-"This is the main file."
-"This is where all the image preparation for neural network training takes place."
-"From loading the dataset, to converting it into a neural network-friendly format."
-"In this file we compile the neural network, set up the hyperparameters for training and run it."
-"Don't forget to check the names of your neural networks in the separate file and in the main file, as well as the number of classes "
-
+"""
+This is the main file.
+This is where all the image preparation for neural network training takes place.
+From loading the dataset, to converting it into a neural network-friendly format.
+In this file we compile the neural network, set up the hyperparameters for training and run it.
+Don't forget to check the names of your neural networks in the separate file and in the main file, as well as the number of classes.
+"""
 
 
 #Make sure to import the correct neural network: from "neural_networks_file_name" import "neural_network_name_in_the_file"
