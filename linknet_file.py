@@ -75,10 +75,13 @@ def decoder_block(x, skip_connection, input_filters, output_filters: int):
      # 1x1 convolution → increase the number of filters to output_filters
      x = Conv2D(output_filters, (1, 1), use_bias = False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
-     x = ReLU()(x)
+     
      
      # Add skip connection
-     x = add([x, skip_connection])
+     if skip_connection is not None:
+         x = add([x, skip_connection])
+         
+     x = ReLU()(x)
 
      #Save for the decoder
      skip_connection = x 
@@ -116,7 +119,7 @@ def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #
     d4 = decoder_block(e4, skip3, 512, 256)
     d3 = decoder_block(d4, skip2, 256, 128)
     d2 = decoder_block(d3, skip1, 128, 64)
-    d1 = decoder_block(d2, initial, 64, 64) # Connect to input
+    d1 = decoder_block(d2, None, 64, 64) # Connect to input
     
     #Output 
     out = Conv2DTranspose(32, (3,3), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(d1)
