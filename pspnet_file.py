@@ -1,112 +1,101 @@
 from keras.models import Model
-from keras.layers import (Input, Conv2D, MaxPooling2D, Reshape, UpSampling2D, 
-                          GlobalAveragePooling2D, concatenate, Conv2DTranspose, 
-                          BatchNormalization, Dropout, Lambda, add, ReLU, Softmax, 
-                          AveragePooling2D)
+from keras.layers import (Input, Conv2D, MaxPooling2D, UpSampling2D, 
+                          GlobalAveragePooling2D, concatenate, BatchNormalization, 
+                          Dropout, Add, ReLU, Softmax, AveragePooling2D, Reshape)
 
-def encoder_block(x, input_filters: int):
-     
-     """
-     Encoder block: 
-         
-     :x: Input tensor.
-     :input_filters: Number of filters in Conv2D.
-     :return: Processed tensor and skip connection for add() in the decoder.
-     """
-  
-     #First skip connection
-     shortcut_1 = Conv2D(input_filters, (1, 1), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
-     shortcut_1 = BatchNormalization()(shortcut_1)
+def resnet18_basic_block(x, filters, stride=1):
+    """
+    BasicBlock из ResNet-18 (2 слоя `3x3 conv`, BatchNorm и Skip Connection).
+    Если stride=2, то shortcut использует `1x1 conv`.
+    """
+    shortcut = x  # Сохраняем входной тензор
     
-     # First convolution layer with dimensionality reduction (strides=2)
-     x = Conv2D(input_filters, (3, 3), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
-     x = BatchNormalization()(x)
-     x = ReLU()(x)
+    if stride != 1:  # Если stride=2, делаем downsample через `1x1 conv`
+        shortcut = Conv2D(filters, (1, 1), strides=stride, use_bias=False, padding='same', kernel_initializer='he_normal')(shortcut)
+        shortcut = BatchNormalization()(shortcut)
 
-     # Second convolution layer
-     x = Conv2D(input_filters, (3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
-     x = BatchNormalization()(x)
-     x = ReLU()(x)
-
-     #Add function x and shortcut_1
-     x = add([x, shortcut_1]) 
-     #Second skip connection
-     shortcut_2 = x
-
-
-     # Third convolution layer
-     x = Conv2D(input_filters, (3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
-     x = BatchNormalization()(x)
-     x = ReLU()(x)
-
-     # Fourth convolution layer
-     x = Conv2D(input_filters, (3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
-     x = BatchNormalization()(x)
-     x = ReLU()(x)
-
-     #Add function x and shortcut_1
-     x = add([x, shortcut_2])
-     skip_connection = x #For the decoder
-
-     return x, skip_connection
-
-def red_ppm_block(x, sizes: int):
-
-  # red_pixel (глобальный pooling => 1x1 => upsample до 32x32)
-    x = GlobalAveragePooling2D()(x)   # B,H,W,C -> B,C
-    x = Reshape((1, 1, -1))(x)         # -> B,1,1,C
-    x = Conv2D(64, (1,1), padding='same', use_bias=False)(x)
+    x = Conv2D(filters, (3, 3), strides=stride, padding='same', use_bias=False, kernel_initializer='he_normal')(x)
     x = BatchNormalization()(x)
-    x = Dropout(0.1)(x)
-    x = UpSampling2D(size=(sizes,sizes), interpolation='bilinear')(x)
+    x = ReLU()(x)
+
+    x = Conv2D(filters, (3, 3), padding='same', use_bias=False, kernel_initializer='he_normal')(x)
+    x = BatchNormalization()(x)
+
+    x = Add()([x, shortcut])  # Skip-connection
+    x = ReLU()(x)
 
     return x
 
-def other_ppm_blocks(x, sizes: int):
-   # yellow_pixel (pool=2x2 => 16x16 => 1x1 conv => upsample x2 => 32x32)
-    x = AveragePooling2D(pool_size=(sizes, sizes))(x)  # -> 16x16
-    x = Conv2D(64, (1,1), padding='same', use_bias=False)(x)
+def pspnet_encoder(inputs):
+    """ Создаём PSPNet-энкодер на основе ResNet-18 """
+    # Conv1: Первый слой PSPNet
+    x = Conv2D(64, (7, 7), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(inputs)
     x = BatchNormalization()(x)
-    x = Dropout(0.1)(x)
-    x = UpSampling2D(size=(sizes, sizes), interpolation='bilinear')(x)
-    # теперь 16x16 -> 32x32
+    x = ReLU()(x)
+    x = MaxPooling2D((3, 3), strides=2, padding='same')(x)  # Теперь 1/4
+
+    # ResNet Blocks (conv2_x - conv5_x)
+    x = resnet18_basic_block(x, 64, stride=1)  # conv2_x (1/4)
+    x = resnet18_basic_block(x, 64, stride=1)  # conv2_x (1/4)
+
+    x = resnet18_basic_block(x, 128, stride=2) # conv3_x (1/8)
+    x = resnet18_basic_block(x, 128, stride=1) # conv3_x (1/8)
+
+    x = resnet18_basic_block(x, 256, stride=2) # conv4_x (1/16)
+    x = resnet18_basic_block(x, 256, stride=1) # conv4_x (1/16)
+
+    x = resnet18_basic_block(x, 512, stride=2) # conv5_x (1/32)
+    x = resnet18_basic_block(x, 512, stride=1) # conv5_x (1/32)
+
     return x
-    
 
-def pspnet_model(n_classes=4, IMG_HEIGHT=256, IMG_WIDTH=256, IMG_CHANNELS=1):
+def pyramid_pooling_module(x):
+    """ Pyramid Pooling Module (PPM) """
 
-  inputs = Input((IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
+    input_shape = x.shape[1:3]  # Получаем (H, W), обычно (9,9)
 
-  #Initial block
-  initial = Conv2D(64, (7,7), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(inputs)
-  initial = Dropout(0.1)(initial)
-  initial = BatchNormalization()(initial)
-  initial = ReLU()(initial)
-  initial = MaxPooling2D((3,3), strides=2, padding='same')(initial)
-  
-  #Encoder
-  e1 = encoder_block(initial, 64)
-  e2 = encoder_block(e1, 128)
-  e3 = encoder_block(e2, 256)
-  e4， = encoder_block(e3, 512)
+    # 1x1 Global Pooling
+    red_pixel = GlobalAveragePooling2D()(x)
+    red_pixel = Reshape((1, 1, -1))(red_pixel)
+    red_pixel = Conv2D(64, (1, 1), padding='same', use_bias=False)(red_pixel)
+    red_pixel = BatchNormalization()(red_pixel)
+    red_pixel = UpSampling2D(size=input_shape, interpolation='bilinear')(red_pixel)  # 🔥 Теперь 9x9
 
-  #Pyramid Pooling Module
-  red_pixel = red_ppm_block(e4, 16)
-  yellow_pixel = other_ppm_blocks(e4, 2)
-  blue_pixel = other_ppm_blocks(e4, 4)
-  green_pixel = other_ppm_blocks(e4, 8)
+    # 2x2 Pooling
+    yellow_pixel = AveragePooling2D(pool_size=(2, 2))(x)
+    yellow_pixel = Conv2D(64, (1, 1), padding='same', use_bias=False)(yellow_pixel)
+    yellow_pixel = BatchNormalization()(yellow_pixel)
+    yellow_pixel = UpSampling2D(size=2, interpolation='bilinear')(yellow_pixel)  # 🔥 Теперь 9x9
 
-  common_result = concatenate([e4, red_pixel, yellow_pixel, blue_pixel, green_pixel])
-  
-  final_feature = UpSampling2D(size=(8,8), interpolation='bilinear')(common_result)
+    # 3x3 Pooling
+    blue_pixel = AveragePooling2D(pool_size=(3, 3))(x)
+    blue_pixel = Conv2D(64, (1, 1), padding='same', use_bias=False)(blue_pixel)
+    blue_pixel = BatchNormalization()(blue_pixel)
+    blue_pixel = UpSampling2D(size=3, interpolation='bilinear')(blue_pixel)  # 🔥 Теперь 9x9
 
-  outputs = Conv2D(n_classes, (3,3), padding='same', use_bias=False, kernel_initializer='he_normal')(final_feature)
-  outputs = BatchNormalization()(outputs)
-  outputs = Softmax()(outputs)
+    # 6x6 Pooling
+    green_pixel = AveragePooling2D(pool_size=(6, 6))(x)
+    green_pixel = Conv2D(64, (1, 1), padding='same', use_bias=False)(green_pixel)
+    green_pixel = BatchNormalization()(green_pixel)
+    green_pixel = UpSampling2D(size=input_shape, interpolation='bilinear')(green_pixel)  # 🔥 Теперь 9x9
 
-  model = Model(inputs=[inputs], outputs=[outputs])
-  return model
+    return concatenate([x, red_pixel, yellow_pixel, blue_pixel, green_pixel])
 
+def pspnet_model(n_classes=44, IMG_HEIGHT=192, IMG_WIDTH=192, IMG_CHANNELS=1):
+    """ PSPNet Model приближенный к оригинальному """
+    inputs = Input((IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
 
-  
-  
+    # Encoder на основе ResNet-18
+    encoder_output = pspnet_encoder(inputs)
+
+    # Pyramid Pooling Module (PPM)
+    ppm = pyramid_pooling_module(encoder_output)
+
+    # Final upsampling
+    final_feature = UpSampling2D(size=(IMG_HEIGHT // ppm.shape[1], IMG_WIDTH // ppm.shape[2]), interpolation='bilinear')(ppm)
+    outputs = Conv2D(n_classes, (3,3), padding='same', use_bias=False, kernel_initializer='he_normal')(final_feature)
+    outputs = BatchNormalization()(outputs)
+    outputs = Softmax()(outputs)
+
+    model = Model(inputs=[inputs], outputs=[outputs])
+    return model
