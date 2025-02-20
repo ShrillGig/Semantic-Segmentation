@@ -13,16 +13,16 @@ def encoder_block(x, input_filters: int):
      """
   
      #First skip connection
-     shortcut_1 = Conv2D(input_filters, (1, 1), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
+     shortcut_1 = Conv2D(input_filters, kernel_size=(1, 1), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
      shortcut_1 = BatchNormalization()(shortcut_1)
     
      # First convolution layer with dimensionality reduction (strides=2)
-     x = Conv2D(input_filters, (3, 3), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
+     x = Conv2D(input_filters, kernel_size=(3, 3), strides=2, use_bias=False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
      x = ReLU()(x)
 
      # Second convolution layer
-     x = Conv2D(input_filters, (3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
+     x = Conv2D(input_filters, kernel_size=(3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
      x = ReLU()(x)
 
@@ -33,12 +33,12 @@ def encoder_block(x, input_filters: int):
 
 
      # Third convolution layer
-     x = Conv2D(input_filters, (3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
+     x = Conv2D(input_filters, kernel_size=(3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
      x = ReLU()(x)
 
      # Fourth convolution layer
-     x = Conv2D(input_filters, (3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
+     x = Conv2D(input_filters, kernel_size=(3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
      x = ReLU()(x)
 
@@ -61,19 +61,19 @@ def decoder_block(x, skip_connection, input_filters, output_filters: int):
      """
    
      # 1x1 convolution → reduction of filters by a factor of 4 (m/4)
-     x = Conv2D(input_filters // 4, (1, 1), use_bias = False, padding='same', kernel_initializer='he_normal')(x)
+     x = Conv2D(input_filters // 4, kernel_size=(1, 1), use_bias = False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
      x = ReLU()(x)
      
      # 3x3 transposed convolution → increase in spatial size
-     x = Conv2DTranspose(input_filters // 4, (3,3), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal' )(x)
+     x = Conv2DTranspose(input_filters // 4, kernel_size=(3,3), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal' )(x)
      x = BatchNormalization()(x)
      x = ReLU()(x)
      
      x = Dropout(0.1)(x)
      
      # 1x1 convolution → increase the number of filters to output_filters
-     x = Conv2D(output_filters, (1, 1), use_bias = False, padding='same', kernel_initializer='he_normal')(x)
+     x = Conv2D(output_filters, kernel_size=(1, 1), use_bias = False, padding='same', kernel_initializer='he_normal')(x)
      x = BatchNormalization()(x)
      
      
@@ -100,7 +100,7 @@ def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #
     inputs = Input((IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
     
     #Initial block
-    initial = Conv2D(64, (7,7), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(inputs)
+    initial = Conv2D(64, kernel_size=(7,7), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(inputs)
     initial = Dropout(0.1)(initial)
     initial = BatchNormalization()(initial)
     initial = ReLU()(initial)
@@ -119,15 +119,15 @@ def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #
     d1 = decoder_block(d2, None, 64, 64) # Connect to input
     
     #Output 
-    out = Conv2DTranspose(32, (3,3), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(d1)
+    out = Conv2DTranspose(32, kernel_size=(3,3), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(d1)
     out = BatchNormalization()(out)
     out = ReLU()(out)
     
-    out = Conv2D(32, (3,3), use_bias = False, padding='same', kernel_initializer='he_normal')(out)
+    out = Conv2D(32, kernel_size=(3,3), use_bias = False, padding='same', kernel_initializer='he_normal')(out)
     out = BatchNormalization()(out)
     out = ReLU()(out)
     
-    out = Conv2DTranspose(n_classes, (2,2), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(out)
+    out = Conv2DTranspose(n_classes, kernel_size=(2,2), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(out)
     out = BatchNormalization()(out)
     outputs = Softmax()(out)
     
