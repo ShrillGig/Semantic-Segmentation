@@ -82,9 +82,6 @@ def decoder_block(x, skip_connection, input_filters, output_filters: int):
          x = add([x, skip_connection])
          
      x = ReLU()(x)
-
-     #Save for the decoder
-     skip_connection = x 
      
      return x
  
