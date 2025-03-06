@@ -1,4 +1,3 @@
-
 """
 This is the main file.
 This is where all the image preparation for neural network training takes place.
@@ -9,36 +8,36 @@ Don't forget to check the names of your neural networks in the separate file and
 
 
 #Make sure to import the correct neural network: from "neural_networks_file_name" import "neural_network_name_in_the_file"
-from pspnet_file import pspnet_model #Importing a neural network from another file
+from linknet import linknet_model #Importing a neural network from another file
 
 from pathlib import Path
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 import time
+import os
 from tensorflow.keras import metrics #Imported metrics from Tensorflow
 
 
 #The image size you want to change to (if necessary)
-SIZE_X = 192
-SIZE_Y = 192
+SIZE_X = 128
+SIZE_Y = 128
 
 #Number of classes
-n_classes = 44
+n_classes = 4
 
 #############################################################################################################################################
 #############################################################################################################################################
 
 #Read images and masks
 BASE_PATH = Path("/content/drive/MyDrive/Colab Notebooks/") #Change to the route to your images and masks folder
-IMAGE_DIR = BASE_PATH / "common_image" #Images folder
-MASK_DIR = BASE_PATH / "common_mask"  #Masks folder
-
+IMAGE_DIR = BASE_PATH / "images-3" #Images folder
+MASK_DIR = BASE_PATH / "masks-3"  #Masks folder
 
 #Capture training image info as a list
 train_images = []
 
-for img_path in IMAGE_DIR.glob("*.jpg"): #Check your images format
+for img_path in sorted(IMAGE_DIR.glob("*.jpg")): #Check your images format
     img = cv2.imread(str(img_path), 0) #Colored images will be read as grayscale
     img = cv2.resize(img, (SIZE_Y, SIZE_X))
     train_images.append(img) #Add image to the list
@@ -49,7 +48,7 @@ train_images = np.array(train_images)
 #Capture mask/label info as a list
 train_masks = []
 
-for mask_path in MASK_DIR.glob("*.png"): #Check your masks format
+for mask_path in sorted (MASK_DIR.glob("*.png")): #Check your masks format
     mask = cv2.imread(str(mask_path), 0) #Colored masks will be read as grayscale
     mask = cv2.resize(mask, (SIZE_Y, SIZE_X), interpolation = cv2.INTER_NEAREST) #Otherwise ground truth changes due to interpolation
     train_masks.append(mask) #Add mask to the list
@@ -58,6 +57,7 @@ for mask_path in MASK_DIR.glob("*.png"): #Check your masks format
 train_masks = np.array(train_masks)
 
 print("x", train_masks.shape)
+print("x", train_images.shape)
 
 #############################################################################################################################################
 #############################################################################################################################################
@@ -86,10 +86,13 @@ train_masks_input = np.expand_dims(train_masks_encoded_original_shape, axis=3) #
 
 from sklearn.model_selection import train_test_split
 
-X_train_val, X_test, y_train_val, y_test = train_test_split(train_images, train_masks_input, test_size=0.10, random_state=0)
+# 1. Сначала разделяем на обучающую + тестовую и валидационную:
+X_train_val, X_val, y_train_val, y_val = train_test_split(
+    train_images, train_masks_input, test_size=215/2149, random_state=0)
 
-# Теперь делим оставшуюся часть (80%) на train (90% от 80%) и validation (10% от 80%)
-X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=0.10/0.90, random_state=0)
+# 2. Затем разделяем обучающую + тестовую на обучающую и тестовую:
+X_train, X_test, y_train, y_test = train_test_split(
+    X_train_val, y_train_val, test_size=194/1934, random_state=0)
 
 print(f"Train size: {len(X_train)}")
 print(f"Validation size: {len(X_val)}")
@@ -124,7 +127,7 @@ print("y_train_cat dtype:", y_train_cat.dtype)  # Должно быть float32 
 
 #Return the neural network we imported from another file and compile it
 def get_model():
-    return pspnet_model(n_classes=n_classes, IMG_HEIGHT=IMG_HEIGHT, IMG_WIDTH=IMG_WIDTH, IMG_CHANNELS=IMG_CHANNELS)
+    return linknet_model(n_classes=n_classes, IMG_HEIGHT=IMG_HEIGHT, IMG_WIDTH=IMG_WIDTH, IMG_CHANNELS=IMG_CHANNELS)
 
 model = get_model()
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=[metrics.OneHotMeanIoU(n_classes)])
@@ -158,7 +161,8 @@ end_time = time.time() #End of the countdown
 #Training time display
 print(f"Trainig time: {end_time - start_time} seconds") #Get the time for which the neural network was trained (in seconds)
 
-model.save("trained_model.h5") #Save the trained model (if necessary)
+model.save("trained_model_linknet44.h5") #Save the trained model (if necessary)
+model.summary()
 
 #############################################################################################################################################
 #############################################################################################################################################
@@ -206,9 +210,10 @@ y_test_argmax = np.argmax(y_test_cat, axis=-1)
 
 # 3. Вычисляем количество классов
 num_classes_test = len(np.unique(y_test_argmax))
+print("Number of classes in test set:", num_classes_test)
 
 # 4. Создаем метрику MeanIoU
-IOU_keras = MeanIoU(num_classes=num_classes_test)
+IOU_keras = MeanIoU(num_classes=n_classes)
 IOU_keras.update_state(y_test_argmax, y_pred_argmax)
 
 # 5. Выводим Mean IoU
@@ -220,38 +225,52 @@ print(values)
 
 # 7. Вычисляем IoU для каждого класса
 class_iou = []
-for i in range(num_classes_test):
+for i in range(n_classes):
     intersection = values[i, i]  # Пересечение
     union = np.sum(values[i, :]) + np.sum(values[:, i]) - intersection  # Объединение
     iou = intersection / union if union != 0 else 0
     class_iou.append(iou)
     print(f"IoU for class {i} is: {iou:.4f}")
 
+
+f1_metric = metrics.F1Score(average='weighted')
+# Reshape y_test_cat and y_pred to 2D
+y_test_cat_reshaped = y_test_cat.reshape(-1, n_classes)  # Reshape to (batch_size * height * width, num_classes)
+y_pred_reshaped = y_pred.reshape(-1, n_classes)  # Reshape to (batch_size * height * width, num_classes)
+
+f1_metric.update_state(y_test_cat_reshaped, y_pred_reshaped)
+f1_score = f1_metric.result().numpy()
+print("F1-score:", f1_score)
+
 #############################################################################################################################################
 #############################################################################################################################################
 
-#Predict on a few images
 import random
-test_img_number = random.randint(0, len(X_test))
-test_img = X_test[test_img_number]
-ground_truth=y_test[test_img_number]
-test_img_norm=test_img[:,:,0][:,:,None]
-test_img_input=np.expand_dims(test_img_norm, 0)
-prediction = (model.predict(test_img_input))
-predicted_img=np.argmax(prediction, axis=3)[0,:,:]
 
-#Visualize
-plt.figure(figsize=(12, 8))
-plt.subplot(231)
-plt.title('Testing Image')
-plt.imshow(test_img[:,:,0], cmap='gray')
-plt.subplot(232)
-plt.title('Testing Label')
-plt.imshow(ground_truth[:,:,0], cmap='jet')
-plt.subplot(233)
-plt.title('Prediction on test image')
-plt.imshow(predicted_img, cmap='jet')
-plt.show()
+# Количество предсказаний
+num_predictions = 10
 
-#############################################################################################################################################
-#############################################################################################################################################
+for j in range(num_predictions):
+    # Выбираем случайное изображение из тестового набора
+    test_img_number = random.randint(0, len(X_test) -1)
+    test_img = X_test[test_img_number]
+    ground_truth = y_test[test_img_number]
+    test_img_norm = test_img[:, :, 0][:, :, None]
+    test_img_input = np.expand_dims(test_img_norm, 0)
+
+    # Получаем предсказание
+    prediction = model.predict(test_img_input)
+    predicted_img = np.argmax(prediction, axis=3)[0, :, :]
+
+    # Визуализируем результаты
+    plt.figure(figsize=(12, 8))
+    plt.subplot(231)
+    plt.title('Test image')
+    plt.imshow(test_img[:, :, 0], cmap='gray')
+    plt.subplot(232)
+    plt.title('Mask')
+    plt.imshow(ground_truth[:, :, 0], cmap='jet')
+    plt.subplot(233)
+    plt.title('Prediction')
+    plt.imshow(predicted_img, cmap='jet')
+    plt.show()
