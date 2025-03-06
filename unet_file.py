@@ -51,7 +51,7 @@ def decoder_block(x, skip_connection, input_filters: int):
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
-    x = Dropout(0.2)(x)
+    x = Dropout(0.1)(x)
     
     x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same')(x)
     x = BatchNormalization()(x)
@@ -73,7 +73,7 @@ def bottleneck(x, input_filters: int):
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
-    x = Dropout(0.3)(x)
+    x = Dropout(0.1)(x)
     
     x = Conv2D(input_filters, (3, 3), kernel_initializer='he_normal', padding='same')(x)
     x = BatchNormalization()(x)
