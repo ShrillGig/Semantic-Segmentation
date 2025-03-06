@@ -116,9 +116,9 @@ def linknet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #
     d4 = decoder_block(e4, skip3, 512, 256)
     d3 = decoder_block(d4, skip2, 256, 128)
     d2 = decoder_block(d3, skip1, 128, 64)
-    d1 = decoder_block(d2, None, 64, 64) # Connect to input
+    d1 = decoder_block(d2, None, 64, 64) 
     
-    #Output 
+    #Final block
     out = Conv2DTranspose(32, kernel_size=(3,3), strides=2, use_bias = False, padding='same', kernel_initializer='he_normal')(d1)
     out = BatchNormalization()(out)
     out = ReLU()(out)
