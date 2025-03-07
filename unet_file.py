@@ -12,13 +12,13 @@ def encoder_block(x, input_filters: int):
      """
     
     #Contraction path
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same')(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
     x = Dropout(0.1)(x)
     
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same')(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
 
@@ -40,20 +40,20 @@ def decoder_block(x, skip_connection, input_filters: int):
      """
   
     #Expansive path 
-    x = Conv2DTranspose(input_filters, (2, 2), strides=(2, 2), padding='same')(x)
+    x = Conv2DTranspose(input_filters, (2, 2), strides=(2, 2), padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
 
     #Concatenation 
     x = concatenate([x, skip_connection])
     
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same')(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
     x = Dropout(0.2)(x)
     
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same')(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
@@ -69,13 +69,13 @@ def bottleneck(x, input_filters: int):
      :return: Processed bottleneck tensor
      """
   
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same')(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
     x = Dropout(0.3)(x)
     
-    x = Conv2D(input_filters, (3, 3), kernel_initializer='he_normal', padding='same')(x)
+    x = Conv2D(input_filters, (3, 3), kernel_initializer='he_normal', padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
@@ -111,7 +111,7 @@ def unet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #Don
     d1 = decoder_block(d2, skip1, 16)
     
     #Output
-    outputs = Conv2D(n_classes, (1, 1))(d1)
+    outputs = Conv2D(n_classes, (1, 1), kernel_initializer='he_normal', padding='same',  use_bias=False)(d1)
     outputs = BatchNormalization()(outputs)
     outputs = Softmax()(outputs)
      
