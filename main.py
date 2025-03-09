@@ -23,7 +23,7 @@ from tensorflow.keras import metrics #Imported metrics from Tensorflow
 SIZE_X = 128
 SIZE_Y = 128
 
-#Number of classes
+#Number of classes (Don't forget to change it if necessary)
 n_classes = 4
 
 #############################################################################################################################################
@@ -86,41 +86,41 @@ train_masks_input = np.expand_dims(train_masks_encoded_original_shape, axis=3) #
 
 from sklearn.model_selection import train_test_split
 
-# 1. Сначала разделяем на обучающую + тестовую и валидационную:
+#Divide the images into training and validation data 
 X_train_val, X_val, y_train_val, y_val = train_test_split(
     train_images, train_masks_input, test_size=215/2149, random_state=0)
 
-# 2. Затем разделяем обучающую + тестовую на обучающую и тестовую:
+#Divide the training images into training and test data
 X_train, X_test, y_train, y_test = train_test_split(
     X_train_val, y_train_val, test_size=194/1934, random_state=0)
 
+#Check how the data was divided
 print(f"Train size: {len(X_train)}")
 print(f"Validation size: {len(X_val)}")
 print(f"Test size: {len(X_test)}")
 
-#Convert training masks to One-hot-encoding format
 from keras.utils import to_categorical
+#Convert training masks to One-hot-encoding format
 y_train_cat = to_categorical(y_train, num_classes=n_classes)
-#y_train_cat = train_masks_cat.reshape((y_train.shape[0], y_train.shape[1], y_train.shape[2], n_classes))
 
 #Convert validation masks to One-hot-enoding format
 y_val_cat = to_categorical(y_val, num_classes=n_classes)
-#y_val_cat = val_masks_cat.reshape((y_val.shape[0], y_val.shape[1], y_val.shape[2], n_classes))
 
+#Convert test masks to One-hot-enoding format
 y_test_cat = to_categorical(y_test, num_classes=n_classes)
-#y_test_cat = test_masks_cat.reshape((y_test.shape[0], y_test.shape[1], y_test.shape[2], n_classes))
 
 #From the X_train array retrieve image sizes
 IMG_HEIGHT = X_train.shape[1]   #Heights
 IMG_WIDTH  = X_train.shape[2]   #Width
 IMG_CHANNELS = X_train.shape[3] #Channels
 
+#Convert float64 to float32
 X_train = X_train.astype("float32")
 X_val = X_val.astype("float32")
 X_test = X_test.astype("float32")
 
-print("X_train dtype:", X_train.dtype)  # Должно быть float32
-print("y_train_cat dtype:", y_train_cat.dtype)  # Должно быть float32 или float64
+print("X_train dtype:", X_train.dtype)  
+print("y_train_cat dtype:", y_train_cat.dtype)
 
 #############################################################################################################################################
 #############################################################################################################################################
@@ -133,19 +133,6 @@ model = get_model()
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=[metrics.OneHotMeanIoU(n_classes)])
 model.summary()
 
-import tensorflow as tf
-print(tf.__version__)
-# Ensure TensorFlow is using the GPU
-print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-
-# Check for GPU devices
-if tf.config.list_physical_devices('GPU'):
-    print("GPU is available")
-else:
-    print("GPU is not available")
-    # Check your runtime type, install drivers etc.
-    # if still GPU is unavailable, then comment out the below line
-    #tf.config.experimental.set_visible_devices([], 'GPU') # Force using CPU if no GPU available
 
 
 start_time = time.time()  #Start of the countdown
@@ -181,7 +168,6 @@ plt.show()
 
 #Plot the training and validation accuracy at each epoch
 #Don't forget to change the last digit of the names acc and val_acc depending on what you see in the terminal
-
 acc = history.history['one_hot_mean_io_u']
 val_acc = history.history['val_one_hot_mean_io_u']
 
@@ -201,38 +187,38 @@ print(history.history.keys()) #Displays the available metrics and loss functions
 
 from keras.metrics import MeanIoU
 
-# 1. Получаем предсказания
+#Get predicition
 y_pred = model.predict(X_test)
 y_pred_argmax = np.argmax(y_pred, axis=3)
 
-# 2. Убираем One-Hot Encoding
+#Remove One-Hot encoding
 y_test_argmax = np.argmax(y_test_cat, axis=-1)
 
-# 3. Вычисляем количество классов
+#Calculate the number of classes
 num_classes_test = len(np.unique(y_test_argmax))
 print("Number of classes in test set:", num_classes_test)
 
-# 4. Создаем метрику MeanIoU
+#Creating the MeanIoU metric
 IOU_keras = MeanIoU(num_classes=n_classes)
 IOU_keras.update_state(y_test_argmax, y_pred_argmax)
 
-# 5. Выводим Mean IoU
+#Output Mean IoU
 print("Mean IoU =", IOU_keras.result().numpy())
 
-# 6. Получаем confusion matrix (НОВАЯ ВЕРСИЯ!)
+#Get the confusion matrix
 values = IOU_keras.total_cm.numpy()  # Вместо get_weights()
 print(values)
 
-# 7. Вычисляем IoU для каждого класса
+#Calculate the IoU for each class
 class_iou = []
 for i in range(n_classes):
-    intersection = values[i, i]  # Пересечение
-    union = np.sum(values[i, :]) + np.sum(values[:, i]) - intersection  # Объединение
+    intersection = values[i, i]  #Intersection
+    union = np.sum(values[i, :]) + np.sum(values[:, i]) - intersection  #Union
     iou = intersection / union if union != 0 else 0
     class_iou.append(iou)
     print(f"IoU for class {i} is: {iou:.4f}")
 
-
+#Calculate F1 score metric
 f1_metric = metrics.F1Score(average='weighted')
 # Reshape y_test_cat and y_pred to 2D
 y_test_cat_reshaped = y_test_cat.reshape(-1, n_classes)  # Reshape to (batch_size * height * width, num_classes)
@@ -247,22 +233,22 @@ print("F1-score:", f1_score)
 
 import random
 
-# Количество предсказаний
+#Number of predictions
 num_predictions = 10
 
 for j in range(num_predictions):
-    # Выбираем случайное изображение из тестового набора
+    #Select a random image from the test set
     test_img_number = random.randint(0, len(X_test) -1)
     test_img = X_test[test_img_number]
     ground_truth = y_test[test_img_number]
     test_img_norm = test_img[:, :, 0][:, :, None]
     test_img_input = np.expand_dims(test_img_norm, 0)
 
-    # Получаем предсказание
+    #Get the prediction
     prediction = model.predict(test_img_input)
     predicted_img = np.argmax(prediction, axis=3)[0, :, :]
 
-    # Визуализируем результаты
+    #Visualise the result (original image + ground truth mask + prediction mask)
     plt.figure(figsize=(12, 8))
     plt.subplot(231)
     plt.title('Test image')
