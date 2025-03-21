@@ -1,5 +1,7 @@
 from keras.models import Model
 from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate, Conv2DTranspose, BatchNormalization, Dropout, Lambda, ReLU, Softmax
+from tensorflow.keras.regularizers import l1, l2, l1_l2
+
 
 def encoder_block(x, input_filters: int):
 
@@ -10,15 +12,17 @@ def encoder_block(x, input_filters: int):
      :input_filters: Number of filters in Conv2D.
      :return: Processed tensor and skip connection for concatenate() in the decoder.
      """
-    
+
+     regl = l1(0.0001)
+     
     #Contraction path
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False,  kernel_regularizer=regl)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
     x = Dropout(0.1)(x)
     
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False, kernel_regularizer=regl)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
 
@@ -38,22 +42,24 @@ def decoder_block(x, skip_connection, input_filters: int):
      :input_filters: Number of input filters
      :return: Processed tensor
      """
-  
+
+     regl = l1(0.0001)
+
     #Expansive path 
-    x = Conv2DTranspose(input_filters, (2, 2), strides=(2, 2), padding='same', use_bias=False)(x)
+    x = Conv2DTranspose(input_filters, (2, 2), strides=(2, 2), padding='same', use_bias=False, kernel_regularizer=regl)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
 
     #Concatenation 
     x = concatenate([x, skip_connection])
     
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False, kernel_regularizer=regl)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
     x = Dropout(0.2)(x)
     
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False, kernel_regularizer=regl)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
@@ -68,14 +74,16 @@ def bottleneck(x, input_filters: int):
      :input_filters: Number of input filters
      :return: Processed bottleneck tensor
      """
-  
-    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False)(x)
+
+     regl = l1(0.0001)
+
+    x = Conv2D(input_filters, (3, 3),  kernel_initializer='he_normal', padding='same', use_bias=False, kernel_regularizer=regl)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
     x = Dropout(0.3)(x)
     
-    x = Conv2D(input_filters, (3, 3), kernel_initializer='he_normal', padding='same', use_bias=False)(x)
+    x = Conv2D(input_filters, (3, 3), kernel_initializer='he_normal', padding='same', use_bias=False, kernel_regularizer=regl)(x)
     x = BatchNormalization()(x)
     x = ReLU()(x)
     
@@ -92,7 +100,9 @@ def unet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #Don
     :IMG_CHANNELS: Number of channels (1 = grayscale, 3 = RGB).
     :return: Compiled U-Net model.
     """
-  
+
+    regl = l1(0.0001)
+
     inputs = Input((IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
     
     #Encoder
@@ -111,7 +121,7 @@ def unet_model(n_classes=4, IMG_HEIGHT=128, IMG_WIDTH=128, IMG_CHANNELS=1): #Don
     d1 = decoder_block(d2, skip1, 16)
     
     #Output
-    outputs = Conv2D(n_classes, (1, 1), kernel_initializer='he_normal', padding='same',  use_bias=False)(d1)
+    outputs = Conv2D(n_classes, (1, 1), kernel_initializer='he_normal', padding='same',  use_bias=False, kernel_regularizer=regl)(d1)
     outputs = BatchNormalization()(outputs)
     outputs = Softmax()(outputs)
      
