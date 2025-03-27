@@ -31,6 +31,7 @@ def encoder_block(x, input_filters: int):
      #Second skip connection
      shortcut_2 = x
 
+     x = Dropout(0.1)(x)
 
      # Third convolution layer
      x = Conv2D(input_filters, kernel_size=(3, 3), use_bias=False, padding='same', kernel_initializer='he_normal')(x)
@@ -70,7 +71,7 @@ def decoder_block(x, skip_connection, input_filters, output_filters: int):
      x = BatchNormalization()(x)
      x = ReLU()(x)
      
-     x = Dropout(0.1)(x)
+     x = Dropout(0.2)(x)
      
      # 1x1 convolution → increase the number of filters to output_filters
      x = Conv2D(output_filters, kernel_size=(1, 1), use_bias = False, padding='same', kernel_initializer='he_normal')(x)
